@@ -19,6 +19,14 @@ from .engine.storage import (
     get_downloads_stats,
     DB_PATH
 )
+from .engine.config import (
+    load_config,
+    save_config,
+    get_download_dir,
+    get_presets,
+    open_folder_in_explorer,
+    pick_folder_gui
+)
 from .engine.ytdl_engine import (
     inspect_media,
     start_download_async,
@@ -225,8 +233,46 @@ async def api_open_folder(download_id: str):
 @app.get("/api/stats")
 async def api_stats():
     stats = get_downloads_stats()
-    stats["downloads_directory"] = DOWNLOADS_DIR
+    stats["downloads_directory"] = get_download_dir()
     return stats
+
+@app.get("/api/config")
+async def api_get_config():
+    return {
+        "config": load_config(),
+        "presets": get_presets()
+    }
+
+@app.post("/api/config")
+async def api_update_config(request: Request):
+    payload = await request.json()
+    try:
+        updated = save_config(payload)
+        return {"success": True, "config": updated}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/api/config/pick-folder")
+async def api_pick_folder():
+    """
+    Triggers the native Windows folder picker GUI dialog.
+    """
+    loop = asyncio.get_event_loop()
+    res = await loop.run_in_executor(None, pick_folder_gui)
+    return res
+
+@app.post("/api/config/open-folder")
+async def api_open_configured_folder(request: Request):
+    """
+    Opens the default or specified folder in Windows Explorer.
+    """
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    folder_path = body.get("folder_path") or get_download_dir()
+    success = open_folder_in_explorer(folder_path)
+    return {"success": success, "folder_path": folder_path}
 
 @app.get("/api/proxy-stream")
 async def api_proxy_stream(url: str = Query(...)):

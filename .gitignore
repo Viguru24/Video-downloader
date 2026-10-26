@@ -9,6 +9,7 @@ venv/
 downloads/*
 !downloads/.gitkeep
 downloads.db
+config.json
 *.log
 .DS_Store
 Thumbs.db

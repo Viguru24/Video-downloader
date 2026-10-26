@@ -416,6 +416,27 @@
     document.getElementById('completed-filename').textContent = task.filename || 'media.mp4';
     document.getElementById('completed-size').textContent = task.filesize_str || '';
 
+    const completedPathEl = document.getElementById('completed-path');
+    if (completedPathEl) {
+      const fullPath = task.filepath || (task.saved_dir ? task.saved_dir + '\\' + task.filename : 'Default Directory');
+      completedPathEl.textContent = 'Saved to: ' + fullPath;
+      completedPathEl.title = fullPath;
+    }
+
+    const btnCompletedOpenFolder = document.getElementById('btn-completed-open-folder');
+    if (btnCompletedOpenFolder) {
+      btnCompletedOpenFolder.onclick = async () => {
+        playChime('click');
+        const folder = task.saved_dir || (task.filepath ? task.filepath.substring(0, task.filepath.lastIndexOf('\\')) : null);
+        await fetch('/api/config/open-folder', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ folder_path: folder })
+        });
+        showToast('Opened in Windows Explorer', 'success');
+      };
+    }
+
     // Direct browser download trigger
     const saveToBrowserChecked = document.getElementById('check-browser-download')?.checked ?? true;
     if (saveToBrowserChecked) {
@@ -737,8 +758,190 @@
     });
   }
 
+  // Settings & Storage Location Manager
+  let appConfig = null;
+  let appPresets = {};
+
+  const currentDownloadDirEl = document.getElementById('current-download-dir');
+  const modalSettings = document.getElementById('modal-settings');
+  const btnSettings = document.getElementById('btn-settings');
+  const btnQuickChangeFolder = document.getElementById('btn-quick-change-folder');
+  const btnSettingsClose = document.getElementById('btn-settings-close');
+  const settingDownloadDir = document.getElementById('setting-download-dir');
+  const settingTriggerBrowser = document.getElementById('setting-trigger-browser');
+  const btnBrowseFolder = document.getElementById('btn-browse-folder');
+  const btnSaveSettings = document.getElementById('btn-save-settings');
+  const btnOpenActiveFolder = document.getElementById('btn-open-active-folder');
+  const btnSettingsOpenFolder = document.getElementById('btn-settings-open-folder');
+
+  async function loadAppConfig() {
+    try {
+      const resp = await fetch('/api/config');
+      const data = await resp.json();
+      appConfig = data.config || {};
+      appPresets = data.presets || {};
+
+      if (currentDownloadDirEl) {
+        currentDownloadDirEl.textContent = appConfig.download_dir || 'Default Folder';
+        currentDownloadDirEl.title = appConfig.download_dir || '';
+      }
+      if (settingDownloadDir) {
+        settingDownloadDir.value = appConfig.download_dir || '';
+      }
+      if (settingTriggerBrowser) {
+        settingTriggerBrowser.checked = !!appConfig.trigger_browser_download;
+      }
+      const checkBrowser = document.getElementById('check-browser-download');
+      if (checkBrowser && appConfig.trigger_browser_download !== undefined) {
+        checkBrowser.checked = !!appConfig.trigger_browser_download;
+      }
+    } catch (e) {
+      console.warn('Failed to load config:', e);
+    }
+  }
+
+  function openSettingsModal() {
+    playChime('click');
+    if (settingDownloadDir && appConfig) {
+      settingDownloadDir.value = appConfig.download_dir || '';
+    }
+    if (settingTriggerBrowser && appConfig) {
+      settingTriggerBrowser.checked = !!appConfig.trigger_browser_download;
+    }
+    if (modalSettings) modalSettings.style.display = 'flex';
+  }
+
+  function closeSettingsModal() {
+    if (modalSettings) modalSettings.style.display = 'none';
+  }
+
+  if (btnSettings) btnSettings.onclick = openSettingsModal;
+  if (btnQuickChangeFolder) btnQuickChangeFolder.onclick = openSettingsModal;
+  if (btnSettingsClose) btnSettingsClose.onclick = closeSettingsModal;
+
+  if (modalSettings) {
+    modalSettings.onclick = (e) => {
+      if (e.target === modalSettings) closeSettingsModal();
+    };
+  }
+
+  // Open active folder in Windows Explorer
+  async function triggerOpenFolder(folderPath = null) {
+    playChime('click');
+    try {
+      await fetch('/api/config/open-folder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ folder_path: folderPath })
+      });
+      showToast('Opened in Windows Explorer', 'success');
+    } catch (e) {
+      showToast('Failed to open folder: ' + e.message, 'error');
+    }
+  }
+
+  if (btnOpenActiveFolder) btnOpenActiveFolder.onclick = () => triggerOpenFolder();
+  if (btnSettingsOpenFolder) btnSettingsOpenFolder.onclick = () => triggerOpenFolder(settingDownloadDir?.value);
+
+  // Browse PC Folder Dialog
+  if (btnBrowseFolder) {
+    btnBrowseFolder.onclick = async () => {
+      playChime('click');
+      const originalText = btnBrowseFolder.innerHTML;
+      btnBrowseFolder.disabled = true;
+      btnBrowseFolder.innerHTML = '⏳ Picking...';
+      showToast('Select your download folder in the Windows dialog window', 'info');
+
+      try {
+        const resp = await fetch('/api/config/pick-folder', { method: 'POST' });
+        const res = await resp.json();
+        btnBrowseFolder.disabled = false;
+        btnBrowseFolder.innerHTML = originalText;
+
+        if (res.success && res.selected_path) {
+          settingDownloadDir.value = res.selected_path;
+          if (currentDownloadDirEl) {
+            currentDownloadDirEl.textContent = res.selected_path;
+            currentDownloadDirEl.title = res.selected_path;
+          }
+          if (res.config) appConfig = res.config;
+          showToast(`Default folder updated: ${res.selected_path}`, 'success');
+        } else if (!res.cancelled) {
+          showToast('Could not select folder: ' + (res.error || 'Unknown error'), 'error');
+        }
+      } catch (e) {
+        btnBrowseFolder.disabled = false;
+        btnBrowseFolder.innerHTML = originalText;
+        showToast('Error selecting folder: ' + e.message, 'error');
+      }
+    };
+  }
+
+  // Preset folder pills
+  document.querySelectorAll('.btn-preset-pill').forEach((btn) => {
+    btn.onclick = () => {
+      playChime('click');
+      const key = btn.getAttribute('data-preset');
+      if (appPresets[key]) {
+        settingDownloadDir.value = appPresets[key];
+        showToast(`Selected preset: ${btn.textContent}`, 'info');
+      }
+    };
+  });
+
+  // Save Settings
+  if (btnSaveSettings) {
+    btnSaveSettings.onclick = async () => {
+      playChime('click');
+      const dir = settingDownloadDir.value.trim();
+      if (!dir) {
+        showToast('Please provide a valid directory path', 'error');
+        return;
+      }
+
+      btnSaveSettings.disabled = true;
+      btnSaveSettings.textContent = 'Saving...';
+
+      try {
+        const resp = await fetch('/api/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            download_dir: dir,
+            trigger_browser_download: settingTriggerBrowser ? settingTriggerBrowser.checked : true
+          })
+        });
+
+        const res = await resp.json();
+        btnSaveSettings.disabled = false;
+        btnSaveSettings.textContent = 'Save Preferences';
+
+        if (res.success && res.config) {
+          appConfig = res.config;
+          if (currentDownloadDirEl) {
+            currentDownloadDirEl.textContent = appConfig.download_dir;
+            currentDownloadDirEl.title = appConfig.download_dir;
+          }
+          const checkBrowser = document.getElementById('check-browser-download');
+          if (checkBrowser) {
+            checkBrowser.checked = !!appConfig.trigger_browser_download;
+          }
+          closeSettingsModal();
+          showToast('Preferences saved successfully!', 'success');
+        } else {
+          showToast(res.detail || 'Failed to save preferences', 'error');
+        }
+      } catch (e) {
+        btnSaveSettings.disabled = false;
+        btnSaveSettings.textContent = 'Save Preferences';
+        showToast('Save error: ' + e.message, 'error');
+      }
+    };
+  }
+
   // URL Query Parameters Handling (Share Target & Bookmarklet support)
   window.addEventListener('DOMContentLoaded', () => {
+    loadAppConfig();
     const params = new URLSearchParams(window.location.search);
     const sharedUrl = params.get('url') || params.get('text');
     if (sharedUrl) {

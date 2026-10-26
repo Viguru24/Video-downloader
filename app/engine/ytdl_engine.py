@@ -10,6 +10,7 @@ from yt_dlp.extractor.beeg import BeegIE
 
 from .storage import add_download, update_download
 from .generic_scraper import scrape_webpage_media
+from .config import get_download_dir
 
 # Global task state tracker
 DOWNLOAD_TASKS: Dict[str, Dict[str, Any]] = {}
@@ -316,8 +317,11 @@ def get_progress_hook(task_id: str):
 
     return hook
 
-def execute_download(task_id: str, url: str, options: Dict[str, Any], output_dir: str = DOWNLOADS_DIR) -> Dict[str, Any]:
+def execute_download(task_id: str, url: str, options: Dict[str, Any], output_dir: Optional[str] = None) -> Dict[str, Any]:
     url = normalize_url(url)
+    if not output_dir:
+        output_dir = get_download_dir()
+    os.makedirs(output_dir, exist_ok=True)
     task = {
         "id": task_id,
         "url": url,
@@ -422,6 +426,7 @@ def execute_download(task_id: str, url: str, options: Dict[str, Any], output_dir
                 "eta_str": "",
                 "filename": final_filename,
                 "filepath": final_path,
+                "saved_dir": os.path.dirname(final_path),
                 "filesize": filesize,
                 "filesize_str": format_bytes(filesize),
                 "title": meta.get("title", "Video"),

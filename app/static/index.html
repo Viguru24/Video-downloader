@@ -42,6 +42,10 @@
       </a>
 
       <div class="header-actions">
+        <button id="btn-settings" class="btn-header" title="Configure Default Save Folder & Preferences">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          Save Folder
+        </button>
         <button id="btn-install" class="btn-header btn-install" title="Install to Desktop / Phone">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
           Install App
@@ -90,6 +94,23 @@
             <button id="btn-analyze" class="btn-analyze">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
               Analyze
+            </button>
+          </div>
+        </div>
+
+        <!-- Storage Location Indicator Bar -->
+        <div class="storage-location-bar">
+          <div class="storage-info">
+            <span class="storage-icon">📁</span>
+            <span class="storage-label">Saving to:</span>
+            <span id="current-download-dir" class="storage-path" title="Current default save directory">Loading...</span>
+          </div>
+          <div class="storage-btns">
+            <button id="btn-open-active-folder" class="btn-storage-action" title="Open this folder in Windows File Explorer">
+              📂 Open Folder
+            </button>
+            <button id="btn-quick-change-folder" class="btn-storage-action btn-change" title="Change default save directory">
+              ⚙️ Change
             </button>
           </div>
         </div>
@@ -186,14 +207,18 @@
             <div>
               <div style="font-weight:700; color:#fff;" id="completed-filename">video.mp4</div>
               <div style="font-size:0.8rem; color:var(--text-muted);" id="completed-size">Completed</div>
+              <div style="font-size:0.8rem; color:var(--accent-cyan); font-family:monospace; margin-top:2px;" id="completed-path">Saved to: ...</div>
             </div>
           </div>
           <div class="completed-actions">
+            <button id="btn-completed-open-folder" class="btn-header" style="background:rgba(255,255,255,0.08);">
+              📂 Open Folder
+            </button>
             <button id="btn-play-in-app" class="btn-header" style="background:var(--primary); border:none;">
               ▶ Play in App
             </button>
             <button id="btn-save-browser" class="btn-header">
-              ⬇ Save Again
+              ⬇ Save to Browser
             </button>
           </div>
         </div>
@@ -275,6 +300,55 @@
       </div>
       <div class="modal-video-wrap">
         <video id="modal-video-player" class="modal-video-player" controls playsinline></video>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings & Save Location Modal -->
+  <div id="modal-settings" class="modal-overlay">
+    <div class="modal-content" style="max-width: 650px;">
+      <div class="modal-header">
+        <div class="modal-title">⚙️ Download Location & Settings</div>
+        <button id="btn-settings-close" class="btn-modal-close">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="settings-body">
+        <div class="settings-field-group">
+          <label class="settings-label">Default Save Directory</label>
+          <div class="settings-input-row">
+            <input type="text" id="setting-download-dir" class="settings-input" placeholder="e.g. C:\Users\louis\Videos" />
+            <button id="btn-browse-folder" class="btn-analyze" style="padding: 10px 18px; white-space: nowrap;">
+              📂 Browse PC...
+            </button>
+          </div>
+        </div>
+
+        <div class="settings-field-group">
+          <label class="settings-label">Quick Preset Locations</label>
+          <div class="preset-folders">
+            <button class="btn-preset-pill" data-preset="videos">🎬 My Videos</button>
+            <button class="btn-preset-pill" data-preset="downloads">📥 Downloads Folder</button>
+            <button class="btn-preset-pill" data-preset="desktop">🖥️ Desktop Videos</button>
+            <button class="btn-preset-pill" data-preset="project">📦 Project Folder</button>
+          </div>
+        </div>
+
+        <div class="settings-field-group" style="border-top: 1px solid var(--border-subtle); padding-top: 16px;">
+          <label class="download-mode-toggle" style="font-size:0.9rem; cursor:pointer;">
+            <input type="checkbox" id="setting-trigger-browser" />
+            <span>Also trigger browser file download popup (saves copy to browser download directory)</span>
+          </label>
+        </div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:24px; padding-top:16px; border-top:1px solid var(--border-subtle);">
+          <button id="btn-settings-open-folder" class="btn-header">
+            📂 Open Current Folder
+          </button>
+          <button id="btn-save-settings" class="btn-start-download" style="padding: 10px 24px;">
+            Save Preferences
+          </button>
+        </div>
       </div>
     </div>
   </div>
