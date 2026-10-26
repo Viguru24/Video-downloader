@@ -4,7 +4,9 @@ import time
 import uuid
 import threading
 from typing import Dict, Any, Optional, List
+import requests
 import yt_dlp
+from yt_dlp.extractor.beeg import BeegIE
 
 from .storage import add_download, update_download
 from .generic_scraper import scrape_webpage_media
@@ -16,6 +18,72 @@ CANCEL_FLAGS: Dict[str, bool] = {}
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 DOWNLOADS_DIR = os.path.join(BASE_DIR, "downloads")
 os.makedirs(DOWNLOADS_DIR, exist_ok=True)
+
+def patch_beeg_extractor():
+    """
+    Monkey-patches yt-dlp's BeegIE extractor to fix:
+    1. HTTP 400 Bad Request caused by leading zeroes in video IDs (e.g. 0474481513382690).
+    2. Missing 'hls_resources' in facts/file/{id} JSON metadata by querying the live
+       stream path endpoint at https://store.externulls.com/video/play_url/{id}.
+    """
+    def custom_real_extract(self, url):
+        raw_id = self._match_id(url)
+        # Strip leading zeros so store.externulls.com API doesn't 400 Bad Request
+        video_id = str(int(raw_id)) if raw_id.isdigit() else raw_id
+        
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+            'Referer': 'https://beeg.com/',
+            'Accept': '*/*'
+        }
+        
+        # 1. Fetch metadata
+        title = 'Video'
+        duration = 0
+        tags = []
+        try:
+            meta_res = requests.get(f'https://store.externulls.com/facts/file/{video_id}', headers=headers, timeout=10).json()
+            file_obj = meta_res.get('file', {})
+            data_list = file_obj.get('data', [])
+            if data_list and isinstance(data_list, list):
+                title = data_list[0].get('cd_value', title)
+            duration = file_obj.get('fl_duration', 0)
+            tags = [t.get('tg_name') for t in meta_res.get('tags', []) if isinstance(t, dict) and t.get('tg_name')]
+        except Exception:
+            pass
+
+        # 2. Fetch live play_url
+        play_res = requests.get(f'https://store.externulls.com/video/play_url/{video_id}', headers=headers, timeout=10)
+        if play_res.status_code != 200:
+            raise Exception(f'Failed to get stream url from beeg (HTTP {play_res.status_code})')
+        
+        play_path = play_res.text.strip()
+        m3u8_url = f'https://video.beeg.com/{play_path}'
+        
+        formats = self._extract_m3u8_formats(m3u8_url, video_id, ext='mp4', m3u8_id='hls')
+        
+        return {
+            'id': video_id,
+            'title': title,
+            'duration': duration,
+            'tags': tags,
+            'formats': formats,
+        }
+
+    BeegIE._real_extract = custom_real_extract
+
+# Apply patch at startup
+try:
+    patch_beeg_extractor()
+except Exception as e:
+    print(f"Warning: Beeg extractor patch failed: {e}")
+
+def normalize_url(url: str) -> str:
+    url = url.strip()
+    # Normalize Beeg URL leading zeroes: e.g. /0474481513382690 -> /474481513382690
+    if "beeg.com" in url.lower():
+        url = re.sub(r'(beeg\.com(?:/video)?/-?)0+(\d+)', r'\g<1>\2', url)
+    return url
 
 def format_bytes(size: Optional[int]) -> str:
     if not size or size <= 0:
@@ -55,6 +123,8 @@ def detect_platform(url: str) -> str:
         return "Vimeo"
     if "twitch.tv" in u:
         return "Twitch"
+    if "beeg.com" in u:
+        return "Beeg"
     if "dailymotion.com" in u:
         return "Dailymotion"
     if "bilibili.com" in u:
@@ -68,6 +138,7 @@ def inspect_media(url: str) -> Dict[str, Any]:
     Inspects media URL using yt-dlp first; falls back to generic HTML5 scraping
     if yt-dlp does not support the URL.
     """
+    url = normalize_url(url)
     ydl_opts = {
         'quiet': True,
         'no_warnings': True,
@@ -143,7 +214,6 @@ def inspect_media(url: str) -> Dict[str, Any]:
 
     # Process formats
     formats = info.get("formats", [])
-    video_resolutions = set()
     qualities_list = []
 
     # Priority resolutions
@@ -247,6 +317,7 @@ def get_progress_hook(task_id: str):
     return hook
 
 def execute_download(task_id: str, url: str, options: Dict[str, Any], output_dir: str = DOWNLOADS_DIR) -> Dict[str, Any]:
+    url = normalize_url(url)
     task = {
         "id": task_id,
         "url": url,
