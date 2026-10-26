@@ -25,7 +25,8 @@ from .engine.config import (
     get_download_dir,
     get_presets,
     open_folder_in_explorer,
-    pick_folder_gui
+    pick_folder_gui,
+    list_directory
 )
 from .engine.ytdl_engine import (
     inspect_media,
@@ -273,6 +274,14 @@ async def api_open_configured_folder(request: Request):
     folder_path = body.get("folder_path") or get_download_dir()
     success = open_folder_in_explorer(folder_path)
     return {"success": success, "folder_path": folder_path}
+
+@app.get("/api/fs/list")
+async def api_fs_list(path: Optional[str] = Query(None)):
+    """
+    Lists directories for the in-app visual folder browser.
+    """
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(None, list_directory, path)
 
 @app.get("/api/proxy-stream")
 async def api_proxy_stream(url: str = Query(...)):

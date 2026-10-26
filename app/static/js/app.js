@@ -826,6 +826,7 @@
       settingTriggerBrowser.checked = !!appConfig.trigger_browser_download;
     }
     if (modalSettings) modalSettings.style.display = 'flex';
+    loadFolderList(settingDownloadDir?.value || null);
   }
 
   function closeSettingsModal() {
@@ -839,6 +840,154 @@
   if (modalSettings) {
     modalSettings.onclick = (e) => {
       if (e.target === modalSettings) closeSettingsModal();
+    };
+  }
+
+  // In-App Folder Tree Explorer Controller
+  let fsCurrentPath = null;
+  let fsParentPath = null;
+  const fsBrowser = document.getElementById('fs-browser');
+  const fsBreadcrumb = document.getElementById('fs-breadcrumb');
+  const fsList = document.getElementById('fs-list');
+  const btnFsUp = document.getElementById('btn-fs-up');
+  const btnFsSelect = document.getElementById('btn-fs-select');
+  const btnToggleFsBrowser = document.getElementById('btn-toggle-fs-browser');
+
+  if (btnToggleFsBrowser) {
+    btnToggleFsBrowser.onclick = () => {
+      playChime('click');
+      if (fsBrowser.style.display === 'none') {
+        fsBrowser.style.display = 'block';
+        loadFolderList(settingDownloadDir?.value || null);
+      } else {
+        fsBrowser.style.display = 'none';
+      }
+    };
+  }
+
+  async function loadFolderList(targetPath = null) {
+    if (!fsList) return;
+    fsList.innerHTML = '<div style="text-align:center; padding:12px; color:var(--text-muted); font-size:0.8rem;">Loading folders...</div>';
+
+    try {
+      const url = '/api/fs/list' + (targetPath ? '?path=' + encodeURIComponent(targetPath) : '');
+      const resp = await fetch(url);
+      const data = await resp.json();
+
+      fsCurrentPath = data.current_path || '';
+      fsParentPath = data.parent_path || null;
+
+      if (fsBreadcrumb) {
+        fsBreadcrumb.textContent = data.current_path || '🖥️ PC Drives & Locations';
+        fsBreadcrumb.title = data.current_path || '';
+      }
+
+      fsList.innerHTML = '';
+
+      if (data.error) {
+        fsList.innerHTML = `<div style="padding:10px; color:var(--accent-rose); font-size:0.8rem;">${data.error}</div>`;
+        return;
+      }
+
+      if (data.is_root) {
+        // Render common folders
+        if (data.common && data.common.length > 0) {
+          data.common.forEach((item) => {
+            const row = document.createElement('div');
+            row.className = 'fs-folder-row';
+            row.innerHTML = `
+              <div class="fs-folder-info">
+                <span>📁</span>
+                <strong>${item.name}</strong>
+                <span style="font-size:0.75rem; color:var(--text-dim);">${item.path}</span>
+              </div>
+              <button class="btn-storage-action" style="padding:2px 8px; font-size:0.7rem;">Open</button>
+            `;
+            row.onclick = () => {
+              playChime('click');
+              loadFolderList(item.path);
+            };
+            fsList.appendChild(row);
+          });
+        }
+
+        // Render drives
+        if (data.drives && data.drives.length > 0) {
+          data.drives.forEach((drv) => {
+            const row = document.createElement('div');
+            row.className = 'fs-folder-row';
+            row.innerHTML = `
+              <div class="fs-folder-info">
+                <span>💾</span>
+                <strong>Drive (${drv})</strong>
+              </div>
+              <button class="btn-storage-action" style="padding:2px 8px; font-size:0.7rem;">Explore</button>
+            `;
+            row.onclick = () => {
+              playChime('click');
+              loadFolderList(drv);
+            };
+            fsList.appendChild(row);
+          });
+        }
+      } else {
+        // Child folders
+        if (data.folders && data.folders.length > 0) {
+          data.folders.forEach((f) => {
+            const row = document.createElement('div');
+            row.className = 'fs-folder-row';
+            row.innerHTML = `
+              <div class="fs-folder-info">
+                <span>📁</span>
+                <span>${f.name}</span>
+              </div>
+              <div style="display:flex; gap:4px;">
+                <button class="btn-storage-action btn-choose-this" style="padding:2px 8px; font-size:0.7rem; background:rgba(99,102,241,0.2);">Pick</button>
+              </div>
+            `;
+            // Click to explore deeper
+            row.onclick = (e) => {
+              if (e.target.classList.contains('btn-choose-this')) {
+                e.stopPropagation();
+                playChime('click');
+                settingDownloadDir.value = f.path;
+                showToast(`Selected: ${f.name}`, 'success');
+                return;
+              }
+              playChime('click');
+              loadFolderList(f.path);
+            };
+            fsList.appendChild(row);
+          });
+        } else {
+          fsList.innerHTML = '<div style="padding:12px; color:var(--text-dim); font-size:0.8rem; text-align:center;">No subfolders found inside this directory.</div>';
+        }
+      }
+    } catch (e) {
+      fsList.innerHTML = `<div style="padding:10px; color:var(--accent-rose); font-size:0.8rem;">Error loading directory: ${e.message}</div>`;
+    }
+  }
+
+  if (btnFsUp) {
+    btnFsUp.onclick = () => {
+      playChime('click');
+      if (fsParentPath) {
+        loadFolderList(fsParentPath);
+      } else {
+        loadFolderList(null);
+      }
+    };
+  }
+
+  if (btnFsSelect) {
+    btnFsSelect.onclick = () => {
+      playChime('click');
+      if (fsCurrentPath) {
+        settingDownloadDir.value = fsCurrentPath;
+        showToast(`Selected folder: ${fsCurrentPath}`, 'success');
+      } else {
+        showToast('Please navigate into a folder first', 'info');
+      }
     };
   }
 

@@ -316,12 +316,31 @@
       </div>
       <div class="settings-body">
         <div class="settings-field-group">
-          <label class="settings-label">Default Save Directory</label>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <label class="settings-label" style="margin:0;">Default Save Directory</label>
+            <button id="btn-toggle-fs-browser" class="btn-storage-action" style="font-size:0.75rem;">
+              📁 Browse Folders
+            </button>
+          </div>
           <div class="settings-input-row">
             <input type="text" id="setting-download-dir" class="settings-input" placeholder="e.g. C:\Users\louis\Videos" />
-            <button id="btn-browse-folder" class="btn-analyze" style="padding: 10px 18px; white-space: nowrap;">
-              📂 Browse PC...
+            <button id="btn-browse-folder" class="btn-analyze" style="padding: 10px 18px; white-space: nowrap;" title="Open native Windows folder picker dialog">
+              🖥️ Windows Dialog
             </button>
+          </div>
+
+          <!-- In-App Interactive Folder Explorer -->
+          <div id="fs-browser" class="fs-browser-wrap">
+            <div class="fs-browser-toolbar">
+              <div class="fs-breadcrumb" id="fs-breadcrumb">🖥️ PC</div>
+              <div style="display:flex; gap:6px;">
+                <button id="btn-fs-up" class="btn-storage-action" style="padding:3px 8px; font-size:0.75rem;">⬆ Up</button>
+                <button id="btn-fs-select" class="btn-storage-action" style="background:var(--primary); color:#fff; border:none; padding:3px 10px; font-size:0.75rem;">✓ Select This Folder</button>
+              </div>
+            </div>
+            <div id="fs-list" class="fs-list-container">
+              <div style="text-align:center; padding:12px; color:var(--text-muted); font-size:0.8rem;">Loading drives and folders...</div>
+            </div>
           </div>
         </div>
 
