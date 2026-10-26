@@ -217,21 +217,21 @@ async def api_delete_download(download_id: str, delete_file: bool = True):
 @app.post("/api/library/{download_id}/open-folder")
 async def api_open_folder(download_id: str):
     """
-    Opens the file in Windows File Explorer locally.
+    Opens the file in Windows File Explorer locally and highlights it.
     """
     item = get_download(download_id)
     if not item or not item.get("filepath") or not os.path.exists(item["filepath"]):
         raise HTTPException(status_code=404, detail="File not found on system")
     
-    filepath = os.path.normpath(item["filepath"])
+    filepath = os.path.normpath(os.path.abspath(item["filepath"]))
     try:
         if sys.platform == "win32":
-            subprocess.Popen(f'explorer.exe /select,"{filepath}"')
+            subprocess.Popen(f'explorer.exe /select,"{filepath}"', shell=True)
         elif sys.platform == "darwin":
             subprocess.Popen(["open", "-R", filepath])
         else:
             subprocess.Popen(["xdg-open", os.path.dirname(filepath)])
-        return {"success": True}
+        return {"success": True, "filepath": filepath}
     except Exception as e:
         return {"success": False, "error": str(e)}
 

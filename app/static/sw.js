@@ -1,11 +1,12 @@
-const CACHE_NAME = "omnidownloader-v2.6";
+// OmniDownloader PWA Service Worker
+const CACHE_NAME = "omnidownloader-v3.0";
 
 // Install immediately
 self.addEventListener("install", (event) => {
   self.skipWaiting();
 });
 
-// Activate: delete ALL older caches immediately
+// Activate: clean up ALL older caches immediately and claim clients
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then((keys) => {
@@ -21,26 +22,60 @@ self.addEventListener("activate", (event) => {
   );
 });
 
-// Network-First strategy for everything so updates are INSTANT
+// Fetch event listener: Network-First with guaranteed valid Response
 self.addEventListener("fetch", (event) => {
-  const url = new URL(event.request.url);
-
-  // Bypass cache completely for API calls, SSE streams, and media streaming
-  if (url.pathname.startsWith("/api/") || event.request.headers.get("accept")?.includes("text/event-stream")) {
+  // Only intercept GET requests
+  if (event.request.method !== "GET") {
     return;
   }
 
-  // Network First: Always try network to get freshest code, fallback to cache if offline
+  // Only handle HTTP/HTTPS schemes (ignore chrome-extension://, etc.)
+  if (!event.request.url.startsWith("http")) {
+    return;
+  }
+
+  const url = new URL(event.request.url);
+
+  // Bypass cache completely for API calls, SSE streams, and media streaming
+  if (
+    url.pathname.startsWith("/api/") ||
+    url.pathname.startsWith("/stream") ||
+    event.request.headers.get("accept")?.includes("text/event-stream")
+  ) {
+    return;
+  }
+
+  // Network-First with guaranteed Response fallback
   event.respondWith(
-    fetch(event.request).then((networkResponse) => {
-      if (networkResponse && networkResponse.status === 200) {
-        const copy = networkResponse.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+    (async () => {
+      try {
+        const networkResponse = await fetch(event.request);
+        if (networkResponse && networkResponse.status === 200 && networkResponse.type === "basic") {
+          const copy = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy)).catch(() => {});
+        }
+        return networkResponse;
+      } catch (err) {
+        // Network failed (offline)
+        const cached = await caches.match(event.request);
+        if (cached) {
+          return cached;
+        }
+
+        // For navigation requests, fallback to cached index if present
+        if (event.request.mode === "navigate") {
+          const rootCached = await caches.match("/");
+          if (rootCached) return rootCached;
+        }
+
+        // Guaranteed Response object (prevents TypeError: Failed to convert value to 'Response')
+        return new Response("OmniDownloader offline fallback", {
+          status: 503,
+          statusText: "Offline",
+          headers: new Headers({ "Content-Type": "text/plain; charset=utf-8" })
+        });
       }
-      return networkResponse;
-    }).catch(() => {
-      return caches.match(event.request);
-    })
+    })()
   );
 });
 

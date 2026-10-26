@@ -727,6 +727,7 @@
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('/sw.js').then((reg) => {
         console.log('OmniDownloader Service Worker registered: ', reg.scope);
+        reg.update().catch(() => {});
       }).catch((err) => {
         console.warn('SW registration failed: ', err);
       });
@@ -995,12 +996,17 @@
   async function triggerOpenFolder(folderPath = null) {
     playChime('click');
     try {
-      await fetch('/api/config/open-folder', {
+      const resp = await fetch('/api/config/open-folder', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ folder_path: folderPath })
       });
-      showToast('Opened in Windows Explorer', 'success');
+      const data = await resp.json();
+      if (data && data.success) {
+        showToast('Opened in Windows File Explorer: ' + (data.folder_path || ''), 'success');
+      } else {
+        showToast('Failed to open: ' + (data?.error || 'Could not launch File Explorer'), 'error');
+      }
     } catch (e) {
       showToast('Failed to open folder: ' + e.message, 'error');
     }

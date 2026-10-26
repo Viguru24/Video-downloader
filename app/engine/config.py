@@ -83,22 +83,23 @@ def open_folder_in_explorer(folder_path: str = None) -> bool:
 
     try:
         if sys.platform == "win32":
-            # 1. Native Windows ShellExecute
+            # Command Prompt start with empty title launches explorer on active desktop
+            try:
+                subprocess.Popen(f'start "" explorer "{target}"', shell=True)
+                return True
+            except Exception:
+                pass
+            try:
+                subprocess.Popen(f'explorer.exe "{target}"', shell=True)
+                return True
+            except Exception:
+                pass
             try:
                 os.startfile(target)
+                return True
             except Exception:
                 pass
-            # 2. Explorer with /n to force new visible window on desktop
-            try:
-                subprocess.Popen(["explorer.exe", f"/n,{target}"])
-            except Exception:
-                pass
-            # 3. Direct Explorer launch
-            try:
-                subprocess.Popen(["explorer.exe", target])
-            except Exception:
-                pass
-            return True
+            return False
         elif sys.platform == "darwin":
             subprocess.Popen(["open", target])
             return True
@@ -111,13 +112,49 @@ def open_folder_in_explorer(folder_path: str = None) -> bool:
 
 def pick_folder_gui() -> Dict[str, Any]:
     """
-    Launches a dedicated standalone helper script with TopMost Form
-    to display the native Windows Folder Selection Dialog.
+    Launches a dedicated folder picker dialog on the desktop.
+    Uses tkinter with topmost focus first; falls back to PowerShell STA dialog.
     """
     initial = get_download_dir()
     if not os.path.exists(initial):
         initial = os.path.expanduser("~")
 
+    # Method 1: Python Tkinter (fast, topmost, native Win32 dialog)
+    code = f"""
+import sys, os
+try:
+    import tkinter as tk
+    from tkinter import filedialog
+    root = tk.Tk()
+    root.withdraw()
+    root.wm_attributes('-topmost', 1)
+    root.lift()
+    root.focus_force()
+    initial_dir = {repr(initial)}
+    res = filedialog.askdirectory(initialdir=initial_dir, title="Select OmniDownloader Save Folder", mustexist=True, parent=root)
+    root.destroy()
+    if res:
+        print("PICKED:" + os.path.normpath(res))
+    else:
+        print("CANCELLED")
+except Exception as e:
+    print("ERR:" + str(e))
+"""
+    try:
+        proc = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, timeout=120)
+        out = proc.stdout.strip()
+        for line in out.splitlines():
+            if line.startswith("PICKED:"):
+                selected = line.replace("PICKED:", "").strip()
+                if selected and os.path.exists(selected):
+                    new_cfg = save_config({"download_dir": selected})
+                    return {"success": True, "selected_path": selected, "config": new_cfg}
+            elif line.startswith("CANCELLED"):
+                return {"success": False, "cancelled": True}
+    except Exception as e:
+        print(f"Tkinter folder picker error: {e}")
+
+    # Method 2: PowerShell STA FolderBrowserDialog fallback
     ps1_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "pick_folder.ps1")
     cmd = [
         "powershell.exe",
