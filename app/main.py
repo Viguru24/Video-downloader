@@ -25,6 +25,7 @@ from .engine.config import (
     get_download_dir,
     get_presets,
     open_folder_in_explorer,
+    select_file_in_explorer,
     pick_folder_gui,
     list_directory
 )
@@ -217,23 +218,14 @@ async def api_delete_download(download_id: str, delete_file: bool = True):
 @app.post("/api/library/{download_id}/open-folder")
 async def api_open_folder(download_id: str):
     """
-    Opens the file in Windows File Explorer locally and highlights it.
+    Opens the file in Windows File Explorer locally on the interactive desktop and highlights it.
     """
     item = get_download(download_id)
     if not item or not item.get("filepath") or not os.path.exists(item["filepath"]):
         raise HTTPException(status_code=404, detail="File not found on system")
-    
-    filepath = os.path.normpath(os.path.abspath(item["filepath"]))
-    try:
-        if sys.platform == "win32":
-            subprocess.Popen(f'explorer.exe /select,"{filepath}"', shell=True)
-        elif sys.platform == "darwin":
-            subprocess.Popen(["open", "-R", filepath])
-        else:
-            subprocess.Popen(["xdg-open", os.path.dirname(filepath)])
-        return {"success": True, "filepath": filepath}
-    except Exception as e:
-        return {"success": False, "error": str(e)}
+
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(None, select_file_in_explorer, item["filepath"])
 
 @app.get("/api/stats")
 async def api_stats():
@@ -269,14 +261,16 @@ async def api_pick_folder():
 @app.post("/api/config/open-folder")
 async def api_open_configured_folder(request: Request):
     """
-    Opens the default or specified folder in Windows Explorer.
+    Opens the default or specified folder in Windows Explorer on the interactive desktop.
     """
     try:
         body = await request.json()
     except Exception:
         body = {}
-    folder_path = body.get("folder_path") or get_download_dir()
-    success = open_folder_in_explorer(folder_path)
+    raw_path = (body.get("folder_path") or "").strip()
+    folder_path = os.path.normpath(os.path.abspath(raw_path)) if raw_path else get_download_dir()
+    loop = asyncio.get_event_loop()
+    success = await loop.run_in_executor(None, open_folder_in_explorer, folder_path)
     return {"success": success, "folder_path": folder_path}
 
 @app.get("/api/fs/list")

@@ -1,5 +1,5 @@
 // OmniDownloader PWA Service Worker
-const CACHE_NAME = "omnidownloader-v3.0";
+const CACHE_NAME = "omnidownloader-v3.1";
 
 // Install immediately
 self.addEventListener("install", (event) => {

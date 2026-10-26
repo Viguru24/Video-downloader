@@ -71,11 +71,13 @@ def get_presets() -> Dict[str, Any]:
 
 def open_folder_in_explorer(folder_path: str = None) -> bool:
     """
-    Forces Windows File Explorer to open the folder window directly on the desktop.
+    Forces Windows File Explorer to open the folder window directly on the
+    active interactive user desktop (WinSta0\\Default) and brings it to front.
     """
-    target = folder_path or get_download_dir()
+    target = (folder_path or "").strip() or get_download_dir()
     target = os.path.normpath(os.path.abspath(target))
-    if not os.path.exists(target):
+    drive, tail = os.path.splitdrive(target)
+    if tail not in ("", "\\") and not os.path.exists(target):
         try:
             os.makedirs(target, exist_ok=True)
         except Exception:
@@ -83,23 +85,13 @@ def open_folder_in_explorer(folder_path: str = None) -> bool:
 
     try:
         if sys.platform == "win32":
-            # Command Prompt start with empty title launches explorer on active desktop
-            try:
-                subprocess.Popen(f'start "" explorer "{target}"', shell=True)
+            from app.engine.win_desktop import invoke_on_user_desktop
+            res = invoke_on_user_desktop({"action": "open_folder", "path": target}, timeout_ms=8000)
+            if res.get("success"):
                 return True
-            except Exception:
-                pass
-            try:
-                subprocess.Popen(f'explorer.exe "{target}"', shell=True)
-                return True
-            except Exception:
-                pass
-            try:
-                os.startfile(target)
-                return True
-            except Exception:
-                pass
-            return False
+            # Fallback if desktop bridge unavailable
+            os.startfile(target)
+            return True
         elif sys.platform == "darwin":
             subprocess.Popen(["open", target])
             return True
@@ -110,69 +102,56 @@ def open_folder_in_explorer(folder_path: str = None) -> bool:
         print(f"Failed to open explorer for '{target}': {e}")
         return False
 
+
+def select_file_in_explorer(filepath: str) -> Dict[str, Any]:
+    """
+    Opens File Explorer on the interactive user desktop (WinSta0\\Default)
+    with the target file highlighted and brings the window to front.
+    """
+    filepath = os.path.normpath(os.path.abspath(filepath))
+    try:
+        if sys.platform == "win32":
+            from app.engine.win_desktop import invoke_on_user_desktop
+            res = invoke_on_user_desktop({"action": "select_file", "path": filepath}, timeout_ms=8000)
+            if res.get("success"):
+                return {"success": True, "filepath": filepath}
+            subprocess.Popen(["explorer.exe", f"/select,{filepath}"])
+            return {"success": True, "filepath": filepath}
+        elif sys.platform == "darwin":
+            subprocess.Popen(["open", "-R", filepath])
+            return {"success": True, "filepath": filepath}
+        else:
+            subprocess.Popen(["xdg-open", os.path.dirname(filepath)])
+            return {"success": True, "filepath": filepath}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
 def pick_folder_gui() -> Dict[str, Any]:
     """
-    Launches a dedicated folder picker dialog on the desktop.
-    Uses tkinter with topmost focus first; falls back to PowerShell STA dialog.
+    Launches a topmost native folder picker dialog directly on the active
+    interactive user desktop (WinSta0\\Default).
     """
     initial = get_download_dir()
     if not os.path.exists(initial):
         initial = os.path.expanduser("~")
 
-    # Method 1: Python Tkinter (fast, topmost, native Win32 dialog)
-    code = f"""
-import sys, os
-try:
-    import tkinter as tk
-    from tkinter import filedialog
-    root = tk.Tk()
-    root.withdraw()
-    root.wm_attributes('-topmost', 1)
-    root.lift()
-    root.focus_force()
-    initial_dir = {repr(initial)}
-    res = filedialog.askdirectory(initialdir=initial_dir, title="Select OmniDownloader Save Folder", mustexist=True, parent=root)
-    root.destroy()
-    if res:
-        print("PICKED:" + os.path.normpath(res))
-    else:
-        print("CANCELLED")
-except Exception as e:
-    print("ERR:" + str(e))
-"""
-    try:
-        proc = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, timeout=120)
-        out = proc.stdout.strip()
-        for line in out.splitlines():
-            if line.startswith("PICKED:"):
-                selected = line.replace("PICKED:", "").strip()
-                if selected and os.path.exists(selected):
-                    new_cfg = save_config({"download_dir": selected})
-                    return {"success": True, "selected_path": selected, "config": new_cfg}
-            elif line.startswith("CANCELLED"):
-                return {"success": False, "cancelled": True}
-    except Exception as e:
-        print(f"Tkinter folder picker error: {e}")
+    if sys.platform == "win32":
+        from app.engine.win_desktop import invoke_on_user_desktop
+        res = invoke_on_user_desktop(
+            {"action": "pick_folder", "initial_dir": initial},
+            timeout_ms=180000,
+        )
+        if res.get("success") and res.get("selected_path"):
+            selected = res["selected_path"]
+            if os.path.exists(selected):
+                new_cfg = save_config({"download_dir": selected})
+                return {"success": True, "selected_path": selected, "config": new_cfg}
+        if res.get("cancelled"):
+            return {"success": False, "cancelled": True}
+        return {"success": False, "error": res.get("error", "Folder picker failed")}
 
-    # Method 2: PowerShell STA FolderBrowserDialog fallback
-    ps1_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "pick_folder.ps1")
-    cmd = [
-        "powershell.exe",
-        "-STA",
-        "-NoProfile",
-        "-ExecutionPolicy", "Bypass",
-        "-File", ps1_path,
-        "-InitialPath", initial
-    ]
-    try:
-        res = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
-        selected = res.stdout.strip()
-        if selected and os.path.exists(selected):
-            new_cfg = save_config({"download_dir": selected})
-            return {"success": True, "selected_path": selected, "config": new_cfg}
-        return {"success": False, "cancelled": True}
-    except Exception as e:
-        return {"success": False, "error": str(e)}
+    return {"success": False, "error": "Native GUI picker only supported on Windows"}
 
 def list_directory(target_path: Optional[str] = None) -> Dict[str, Any]:
     """
