@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+  <title>OmniDownloader - Universal Video PWA</title>
+  
+  <!-- PWA Meta -->
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#6366f1">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="OmniDownloader">
+  <meta name="description" content="Universal high-resolution video downloader Progressive Web App. Download videos from any website.">
+  
+  <link rel="icon" type="image/svg+xml" href="/static/icons/favicon.svg">
+  <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+
+  <!-- Ambient Cinematic Background Glows -->
+  <div class="ambient-glow">
+    <div class="ambient-blob blob-1"></div>
+    <div class="ambient-blob blob-2"></div>
+    <div class="ambient-blob blob-3"></div>
+  </div>
+
+  <!-- Main Container -->
+  <div class="app-container">
+    
+    <!-- App Header -->
+    <header class="app-header">
+      <a href="/" class="brand-wrapper">
+        <img src="/static/icons/icon.svg" alt="OmniDownloader Logo" class="brand-icon">
+        <div class="brand-text">
+          <h1>OmniDownloader</h1>
+          <p>Universal Video & Audio Studio PWA</p>
+        </div>
+      </a>
+
+      <div class="header-actions">
+        <button id="btn-install" class="btn-header btn-install" title="Install to Desktop / Phone">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+          Install App
+        </button>
+      </div>
+    </header>
+
+    <!-- Navigation Tabs -->
+    <nav class="nav-tabs">
+      <button class="tab-btn active" data-tab="single">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+        Single Video
+      </button>
+      <button class="tab-btn" data-tab="batch">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 12h10M12 7v10"/></svg>
+        Batch Queue
+      </button>
+      <button class="tab-btn" data-tab="library">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+        Media Library
+      </button>
+      <button class="tab-btn" data-tab="tools">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        1-Click Bookmarklet
+      </button>
+    </nav>
+
+    <!-- VIEW 1: SINGLE DOWNLOADER -->
+    <section id="view-single" class="tab-view active">
+      
+      <!-- Hero Card -->
+      <div class="hero-card">
+        <div class="hero-title">
+          <h2>Download Any Video from Any Website</h2>
+          <p>Paste any URL from YouTube, TikTok, X, Instagram, Reddit, Vimeo, or any webpage with video.</p>
+        </div>
+
+        <div class="search-box-wrapper">
+          <span id="platform-badge" class="platform-badge">Universal Web</span>
+          <input type="text" id="search-input" class="search-input" placeholder="Paste video link here (e.g. https://...)" autofocus autocomplete="off" />
+          <div class="search-tools">
+            <button id="btn-paste" class="btn-paste" title="Paste from clipboard">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
+              Paste
+            </button>
+            <button id="btn-analyze" class="btn-analyze">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+              Analyze
+            </button>
+          </div>
+        </div>
+
+        <!-- Supported platforms strip -->
+        <div class="supported-platforms">
+          <span class="plat-chip">⚡ YouTube 4K</span>
+          <span class="plat-chip">✨ TikTok (No Watermark)</span>
+          <span class="plat-chip">🐦 X / Twitter HD</span>
+          <span class="plat-chip">📸 Instagram Reels</span>
+          <span class="plat-chip">👾 Reddit Audio+Video</span>
+          <span class="plat-chip">🎥 Vimeo & Facebook</span>
+          <span class="plat-chip">🌐 HTML5 & .m3u8 Streams</span>
+        </div>
+      </div>
+
+      <!-- Loading Indicator -->
+      <div id="loading-indicator" class="loading-indicator">
+        <div class="spinner"></div>
+        <div style="font-weight: 600; font-size: 0.95rem; color: var(--text-muted);">
+          Extracting streams and media formats...
+        </div>
+      </div>
+
+      <!-- Video Inspection Result Card -->
+      <div id="media-result-card" class="media-result-card">
+        <div class="media-summary">
+          <div class="thumb-container">
+            <img id="thumb-img" class="thumb-img" src="" alt="Thumbnail" />
+            <div id="meta-duration" class="duration-badge">0:00</div>
+          </div>
+          <div class="meta-details">
+            <div id="meta-platform" class="meta-platform-tag">YOUTUBE</div>
+            <h3 id="meta-title" class="meta-title">Video Title</h3>
+            <div id="meta-author" class="meta-author">Channel</div>
+          </div>
+        </div>
+
+        <!-- Format Options -->
+        <div class="options-section">
+          <div class="section-label">Select Output Format & Quality</div>
+          <div class="format-tabs">
+            <button id="tab-btn-video" class="format-tab-btn active" onclick="switchFormatTab('video')">
+              🎥 Video + Audio
+            </button>
+            <button id="tab-btn-audio" class="format-tab-btn" onclick="switchFormatTab('audio')">
+              🎵 Audio Only (MP3 / FLAC)
+            </button>
+          </div>
+
+          <!-- Quality Matrix Grid -->
+          <div id="quality-grid" class="quality-grid"></div>
+
+          <!-- Actions Bar -->
+          <div class="download-actions-bar">
+            <label class="download-mode-toggle">
+              <input type="checkbox" id="check-browser-download" checked />
+              <span>Automatically trigger browser file download</span>
+            </label>
+            <button id="btn-start-download" class="btn-start-download">
+              ⚡ Download Now
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Active Progress Card -->
+      <div id="progress-card" class="progress-card">
+        <div class="progress-header">
+          <div class="progress-title-block">
+            <h3 id="progress-title">Downloading Video...</h3>
+            <div id="progress-stage" class="progress-stage">Initializing...</div>
+          </div>
+          <div id="progress-percent" class="progress-percent">0%</div>
+        </div>
+
+        <div class="progress-bar-track">
+          <div id="progress-bar-fill" class="progress-bar-fill"></div>
+        </div>
+
+        <div class="progress-stats-row">
+          <span id="progress-stats">Calculating transfer speed...</span>
+          <span>FFmpeg High Performance</span>
+        </div>
+
+        <div class="progress-actions">
+          <button id="btn-cancel" class="btn-cancel">Cancel</button>
+        </div>
+
+        <!-- Completed Notification Box -->
+        <div id="completed-box" class="download-completed-box">
+          <div class="completed-left">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            <div>
+              <div style="font-weight:700; color:#fff;" id="completed-filename">video.mp4</div>
+              <div style="font-size:0.8rem; color:var(--text-muted);" id="completed-size">Completed</div>
+            </div>
+          </div>
+          <div class="completed-actions">
+            <button id="btn-play-in-app" class="btn-header" style="background:var(--primary); border:none;">
+              ▶ Play in App
+            </button>
+            <button id="btn-save-browser" class="btn-header">
+              ⬇ Save Again
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- VIEW 2: BATCH DOWNLOADER -->
+    <section id="view-batch" class="tab-view">
+      <div class="batch-card">
+        <div class="hero-title" style="text-align: left; margin-bottom: 16px;">
+          <h2>Batch Video Downloader</h2>
+          <p>Paste multiple video links (one URL per line) to process whole collections or playlists in queue.</p>
+        </div>
+
+        <textarea id="batch-urls" class="batch-textarea" placeholder="https://www.youtube.com/watch?v=...&#10;https://www.tiktok.com/@...&#10;https://x.com/...&#10;https://instagram.com/reel/..."></textarea>
+        
+        <button id="btn-start-batch" class="btn-analyze" style="padding: 12px 28px;">
+          🚀 Start Batch Download
+        </button>
+
+        <div id="batch-queue-list" class="batch-queue-list"></div>
+      </div>
+    </section>
+
+    <!-- VIEW 3: MEDIA LIBRARY -->
+    <section id="view-library" class="tab-view">
+      <div class="library-header">
+        <div>
+          <h2>Downloaded Media Library</h2>
+          <p style="color:var(--text-muted); font-size:0.85rem;">Local storage and completed downloads</p>
+        </div>
+        <input type="text" id="library-search" class="library-search-box" placeholder="Search downloaded files..." />
+      </div>
+
+      <div id="library-grid" class="library-grid"></div>
+    </section>
+
+    <!-- VIEW 4: TOOLS & BOOKMARKLET -->
+    <section id="view-tools" class="tab-view">
+      <div class="tools-card">
+        <div class="hero-title" style="text-align: left;">
+          <h2>1-Click Bookmarklet & PWA Setup</h2>
+          <p>Download video from any open browser tab with a single click without even opening the app manually.</p>
+        </div>
+
+        <div style="margin: 24px 0; padding: 20px; background: rgba(0,0,0,0.3); border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
+          <h3 style="margin-bottom: 8px;">🌟 The Magic 1-Click Bookmarklet</h3>
+          <p style="font-size:0.9rem; color:var(--text-muted); margin-bottom: 14px;">
+            Drag this button directly to your browser's Bookmarks bar (Chrome, Edge, Firefox, Safari). Whenever you are watching any video on any website, simply click this bookmark to automatically send it to OmniDownloader!
+          </p>
+          <a class="bookmarklet-pill" href="javascript:(function(){window.open('http://localhost:8484/?url='+encodeURIComponent(location.href));})();">
+            ⬇ Download with OmniDownloader
+          </a>
+        </div>
+
+        <div style="margin-top: 24px;">
+          <h3 style="margin-bottom: 12px;">📱 How to install as a Native Desktop / Mobile App</h3>
+          <ul style="color:var(--text-muted); font-size:0.9rem; line-height: 1.8; margin-left: 20px;">
+            <li><strong>Google Chrome & Microsoft Edge:</strong> Click the <strong>Install OmniDownloader</strong> button in the top bar or click the install icon (➕) in your browser URL bar.</li>
+            <li><strong>Android (Chrome / Brave / Edge):</strong> Tap the 3 dots menu &rarr; <strong>"Add to Home screen"</strong> or <strong>"Install app"</strong>.</li>
+            <li><strong>iPhone / iPad (Safari):</strong> Tap the Share button &rarr; <strong>"Add to Home Screen"</strong>.</li>
+            <li><strong>Native Web Share Target:</strong> Once installed on your phone, when viewing any video in YouTube/Twitter/Instagram apps, tap "Share" and select <strong>OmniDownloader</strong>!</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- In-App Media Player Modal -->
+  <div id="modal-player" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div id="modal-title" class="modal-title">Media Player</div>
+        <button id="btn-modal-close" class="btn-modal-close">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="modal-video-wrap">
+        <video id="modal-video-player" class="modal-video-player" controls playsinline></video>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- Client Script -->
+  <script src="/static/js/app.js"></script>
+</body>
+</html>

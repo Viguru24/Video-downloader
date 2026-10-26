@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e1b4b" />
+      <stop offset="50%" stop-color="#0f172a" />
+      <stop offset="100%" stop-color="#060911" />
+    </linearGradient>
+    <linearGradient id="arrowGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#a855f7" />
+      <stop offset="50%" stop-color="#6366f1" />
+      <stop offset="100%" stop-color="#38bdf8" />
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="16" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Background container -->
+  <rect width="512" height="512" rx="128" fill="url(#bgGrad)" />
+  <rect width="508" height="508" x="2" y="2" rx="126" stroke="rgba(255,255,255,0.12)" stroke-width="4" />
+
+  <!-- Outer ambient glowing ring -->
+  <circle cx="256" cy="256" r="170" stroke="rgba(99, 102, 241, 0.25)" stroke-width="4" stroke-dasharray="12 12" />
+  <circle cx="256" cy="256" r="140" fill="rgba(99, 102, 241, 0.08)" />
+
+  <!-- Central Download Symbol with Glow -->
+  <g filter="url(#glow)">
+    <!-- Arrow Stem -->
+    <rect x="236" y="140" width="40" height="130" rx="20" fill="url(#arrowGrad)" />
+    <!-- Arrow Head -->
+    <path d="M166 250 L346 250 L256 350 Z" fill="url(#arrowGrad)" stroke-linejoin="round" />
+  </g>
+
+  <!-- Base Media Cradle / Film Strip Tray -->
+  <path d="M150 370 C150 370 170 410 256 410 C342 410 362 370 362 370" 
+        stroke="url(#arrowGrad)" stroke-width="20" stroke-linecap="round" />
+</svg>

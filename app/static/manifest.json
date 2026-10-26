@@ -1,0 +1,71 @@
+{
+  "id": "/?source=pwa",
+  "name": "OmniDownloader - Universal Video PWA",
+  "short_name": "OmniDownloader",
+  "description": "Download any video from any website in ultra-high resolution with FFmpeg merging and instant offline playback.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#080b11",
+  "theme_color": "#6366f1",
+  "categories": ["utilities", "multimedia", "productivity", "entertainment"],
+  "icons": [
+    {
+      "src": "/static/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/static/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/static/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/static/icons/icon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "share_target": {
+    "action": "/",
+    "method": "GET",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url"
+    }
+  },
+  "shortcuts": [
+    {
+      "name": "Download Single URL",
+      "short_name": "Download",
+      "description": "Download any video by URL",
+      "url": "/?tab=single",
+      "icons": [{ "src": "/static/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Batch Downloader",
+      "short_name": "Batch",
+      "description": "Download playlists or multiple URLs in queue",
+      "url": "/?tab=batch",
+      "icons": [{ "src": "/static/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Media Library",
+      "short_name": "Library",
+      "description": "View and play downloaded media",
+      "url": "/?tab=library",
+      "icons": [{ "src": "/static/icons/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}
