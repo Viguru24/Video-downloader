@@ -17,7 +17,7 @@ USER_DESKTOP_VIDEOS = os.path.join(USER_HOME, "Desktop", "Videos")
 
 DEFAULT_CONFIG: Dict[str, Any] = {
     "download_dir": DEFAULT_DOWNLOADS,
-    "trigger_browser_download": True,
+    "trigger_browser_download": False,
     "audio_format": "mp3",
     "embed_thumbnail": True
 }
@@ -109,20 +109,21 @@ def select_file_in_explorer(filepath: str) -> Dict[str, Any]:
     with the target file highlighted and brings the window to front.
     """
     filepath = os.path.normpath(os.path.abspath(filepath))
+    folder_path = os.path.dirname(filepath)
     try:
         if sys.platform == "win32":
             from app.engine.win_desktop import invoke_on_user_desktop
             res = invoke_on_user_desktop({"action": "select_file", "path": filepath}, timeout_ms=8000)
             if res.get("success"):
-                return {"success": True, "filepath": filepath}
-            subprocess.Popen(["explorer.exe", f"/select,{filepath}"])
-            return {"success": True, "filepath": filepath}
+                return {"success": True, "filepath": filepath, "folder_path": folder_path}
+            subprocess.Popen(f'explorer.exe /select,"{filepath}"')
+            return {"success": True, "filepath": filepath, "folder_path": folder_path}
         elif sys.platform == "darwin":
             subprocess.Popen(["open", "-R", filepath])
-            return {"success": True, "filepath": filepath}
+            return {"success": True, "filepath": filepath, "folder_path": folder_path}
         else:
-            subprocess.Popen(["xdg-open", os.path.dirname(filepath)])
-            return {"success": True, "filepath": filepath}
+            subprocess.Popen(["xdg-open", folder_path])
+            return {"success": True, "filepath": filepath, "folder_path": folder_path}
     except Exception as e:
         return {"success": False, "error": str(e)}
 

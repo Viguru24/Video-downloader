@@ -23,7 +23,7 @@
   <meta http-equiv="Expires" content="0">
 
   <!-- Stylesheet -->
-  <link rel="stylesheet" href="/static/css/style.css?v=3.1">
+  <link rel="stylesheet" href="/static/css/style.css?v=3.2">
 </head>
 <body>
 
@@ -172,10 +172,9 @@
 
           <!-- Actions Bar -->
           <div class="download-actions-bar">
-            <label class="download-mode-toggle">
-              <input type="checkbox" id="check-browser-download" checked />
-              <span>Automatically trigger browser file download</span>
-            </label>
+            <div class="download-mode-toggle" style="color:var(--text-muted); font-size:0.85rem;">
+              <span>📁 Saves once directly into your selected Save Folder</span>
+            </div>
             <button id="btn-start-download" class="btn-start-download">
               ⚡ Download Now
             </button>
@@ -222,9 +221,6 @@
             </button>
             <button id="btn-play-in-app" class="btn-header" style="background:var(--primary); border:none;">
               ▶ Play in App
-            </button>
-            <button id="btn-save-browser" class="btn-header">
-              ⬇ Save to Browser
             </button>
           </div>
         </div>
@@ -361,9 +357,9 @@
         </div>
 
         <div class="settings-field-group" style="border-top: 1px solid var(--border-subtle); padding-top: 16px;">
-          <label class="download-mode-toggle" style="font-size:0.9rem; cursor:pointer;">
+          <label class="download-mode-toggle" style="font-size:0.85rem; cursor:pointer; color:var(--text-muted);">
             <input type="checkbox" id="setting-trigger-browser" />
-            <span>Also trigger browser file download popup (saves copy to browser download directory)</span>
+            <span>Remote / Mobile device mode only: also push a copy to browser downloads (leave OFF on PC so files are only saved once)</span>
           </label>
         </div>
 
@@ -383,6 +379,6 @@
   <div id="toast-container" class="toast-container"></div>
 
   <!-- Client Script -->
-  <script src="/static/js/app.js?v=3.1"></script>
+  <script src="/static/js/app.js?v=3.2"></script>
 </body>
 </html>

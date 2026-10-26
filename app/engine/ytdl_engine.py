@@ -385,17 +385,22 @@ def execute_download(task_id: str, url: str, options: Dict[str, Any], output_dir
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             meta = ydl.extract_info(url, download=True)
-            filename = ydl.prepare_filename(meta)
-            
-            # Postprocessor changes extension
-            if is_audio_only:
-                base, _ = os.path.splitext(filename)
-                final_path = f"{base}.{audio_format}"
+            req_dls = meta.get("requested_downloads") or []
+            exact_path = req_dls[0].get("filepath") if req_dls and isinstance(req_dls[0], dict) else None
+
+            if exact_path and os.path.exists(exact_path):
+                final_path = os.path.normpath(os.path.abspath(exact_path))
             else:
-                base, _ = os.path.splitext(filename)
-                final_path = f"{base}.mp4"
-                if not os.path.exists(final_path) and os.path.exists(filename):
-                    final_path = filename
+                filename = ydl.prepare_filename(meta)
+                if is_audio_only:
+                    base, _ = os.path.splitext(filename)
+                    final_path = f"{base}.{audio_format}"
+                else:
+                    base, _ = os.path.splitext(filename)
+                    final_path = f"{base}.mp4"
+                    if not os.path.exists(final_path) and os.path.exists(filename):
+                        final_path = filename
+                final_path = os.path.normpath(os.path.abspath(final_path))
 
             final_filename = os.path.basename(final_path)
             filesize = os.path.getsize(final_path) if os.path.exists(final_path) else 0

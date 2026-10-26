@@ -1,8 +1,8 @@
 """
 Standalone helper executed directly on the interactive user desktop (WinSta0\\Default).
-Handles opening File Explorer windows, selecting files, and showing topmost native
-folder selection dialogs even when the parent web server runs inside a background
-or sandboxed desktop (such as exebox).
+Handles opening File Explorer windows, selecting files via Win32 Shell PIDLs
+(SHOpenFolderAndSelectItems), and showing topmost native folder selection dialogs
+even when the parent web server runs inside a sandboxed desktop (such as exebox).
 """
 import ctypes
 from ctypes import wintypes
@@ -15,6 +15,8 @@ import time
 
 user32 = ctypes.windll.user32
 kernel32 = ctypes.windll.kernel32
+ole32 = ctypes.windll.ole32
+shell32 = ctypes.windll.shell32
 
 WNDENUMPROC = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
 
@@ -52,6 +54,23 @@ user32.SetWindowPos.argtypes = [
     wintypes.UINT,
 ]
 user32.SetWindowPos.restype = wintypes.BOOL
+
+ole32.CoInitialize.argtypes = [ctypes.c_void_p]
+ole32.CoInitialize.restype = ctypes.c_long
+ole32.CoUninitialize.argtypes = []
+ole32.CoUninitialize.restype = None
+
+shell32.ILCreateFromPathW.argtypes = [wintypes.LPCWSTR]
+shell32.ILCreateFromPathW.restype = ctypes.c_void_p
+shell32.ILFree.argtypes = [ctypes.c_void_p]
+shell32.ILFree.restype = None
+shell32.SHOpenFolderAndSelectItems.argtypes = [
+    ctypes.c_void_p,
+    wintypes.UINT,
+    ctypes.c_void_p,
+    wintypes.DWORD,
+]
+shell32.SHOpenFolderAndSelectItems.restype = ctypes.c_long
 
 HWND_TOPMOST = wintypes.HWND(-1)
 HWND_NOTOPMOST = wintypes.HWND(-2)
@@ -132,9 +151,14 @@ def match_existing_cabinet(target: str, cabinets):
     """Finds an already-open Explorer window matching target path or folder name."""
     norm = os.path.normpath(target).lower()
     base = os.path.basename(norm.rstrip("\\")).lower()
+    # First pass: exact full path in title
+    for hwnd, title in cabinets:
+        if norm in title.lower():
+            return hwnd
+    # Second pass: folder basename match (e.g. 'Delete - File Explorer')
     for hwnd, title in cabinets:
         tl = title.lower()
-        if norm in tl or (base and base in tl):
+        if base and (tl == base or tl.startswith(base + " -") or tl.startswith(base + " (")):
             return hwnd
     return None
 
@@ -151,7 +175,7 @@ def do_open_folder(target: str):
     try:
         os.startfile(target)
     except Exception:
-        subprocess.Popen(["explorer.exe", target])
+        subprocess.Popen(f'explorer.exe "{target}"')
 
     chosen_hwnd = None
     for i in range(34):
@@ -168,7 +192,7 @@ def do_open_folder(target: str):
                 break
 
     if not chosen_hwnd:
-        subprocess.Popen(["explorer.exe", target])
+        subprocess.Popen(f'explorer.exe "{target}"')
         for _ in range(25):
             time.sleep(0.06)
             cabinets = get_cabinet_windows()
@@ -194,22 +218,49 @@ def do_open_folder(target: str):
 
 
 def do_select_file(filepath: str):
+    """
+    Uses native Win32 SHOpenFolderAndSelectItems so File Explorer opens the EXACT
+    directory containing filepath and highlights the exact file (immune to spaces,
+    commas, brackets, or plus signs in filenames).
+    """
     filepath = os.path.normpath(os.path.abspath(filepath))
-    before_hwnds = {h for h, _ in get_cabinet_windows()}
-
-    user32.AllowSetForegroundWindow(0xFFFFFFFF)
-    subprocess.Popen(["explorer.exe", f"/select,{filepath}"])
-
     parent_dir = os.path.dirname(filepath)
+
+    if not os.path.exists(filepath):
+        if os.path.exists(parent_dir):
+            return do_open_folder(parent_dir)
+        return {"success": False, "filepath": filepath, "error": f"File not found: {filepath}"}
+
+    before_hwnds = {h for h, _ in get_cabinet_windows()}
+    user32.AllowSetForegroundWindow(0xFFFFFFFF)
+
+    used_shell_api = False
+    ole32.CoInitialize(None)
+    try:
+        pidl = shell32.ILCreateFromPathW(filepath)
+        if pidl:
+            try:
+                hr = shell32.SHOpenFolderAndSelectItems(pidl, 0, None, 0)
+                if hr >= 0:
+                    used_shell_api = True
+            finally:
+                shell32.ILFree(pidl)
+    finally:
+        ole32.CoUninitialize()
+
+    if not used_shell_api:
+        # Raw command string (NOT list) so /select, stays unquoted before the quoted path
+        subprocess.Popen(f'explorer.exe /select,"{filepath}"')
+
     chosen_hwnd = None
-    for i in range(34):
-        time.sleep(0.06)
+    for i in range(30):
+        time.sleep(0.05)
         cabinets = get_cabinet_windows()
         new_hwnds = [h for h, _ in cabinets if h not in before_hwnds]
         if new_hwnds:
             chosen_hwnd = new_hwnds[-1]
             break
-        if i >= 5:
+        if i >= 4:
             matched = match_existing_cabinet(parent_dir, cabinets)
             if matched:
                 chosen_hwnd = matched
@@ -217,14 +268,14 @@ def do_select_file(filepath: str):
 
     if chosen_hwnd:
         bring_hwnd_to_front(chosen_hwnd)
-        return {"success": True, "filepath": filepath, "hwnd": chosen_hwnd}
+        return {"success": True, "filepath": filepath, "folder_path": parent_dir, "hwnd": chosen_hwnd}
 
     cabinets = get_cabinet_windows()
     if cabinets:
         bring_hwnd_to_front(cabinets[0][0])
-        return {"success": True, "filepath": filepath, "hwnd": cabinets[0][0]}
+        return {"success": True, "filepath": filepath, "folder_path": parent_dir, "hwnd": cabinets[0][0]}
 
-    return {"success": False, "filepath": filepath, "error": "Explorer window did not appear"}
+    return {"success": True, "filepath": filepath, "folder_path": parent_dir}
 
 
 def do_pick_folder(initial_dir: str):

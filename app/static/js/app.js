@@ -427,35 +427,39 @@
     if (btnCompletedOpenFolder) {
       btnCompletedOpenFolder.onclick = async () => {
         playChime('click');
-        const folder = task.saved_dir || (task.filepath ? task.filepath.substring(0, task.filepath.lastIndexOf('\\')) : null);
-        await fetch('/api/config/open-folder', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ folder_path: folder })
-        });
-        showToast('Opened in Windows Explorer', 'success');
+        const r = await fetch(`/api/library/${task.id}/open-folder`, { method: 'POST' });
+        const res = await r.json();
+        if (res && res.success) {
+          showToast('Opened & highlighted in: ' + (res.folder_path || ''), 'success');
+        } else {
+          const folder = task.saved_dir || (task.filepath ? task.filepath.substring(0, task.filepath.lastIndexOf('\\')) : null);
+          await triggerOpenFolder(folder);
+        }
       };
     }
 
-    // Direct browser download trigger
-    const saveToBrowserChecked = document.getElementById('check-browser-download')?.checked ?? true;
-    if (saveToBrowserChecked) {
+    // Only push a browser copy if explicitly turned ON in Settings (OFF by default so files save once)
+    if (appConfig && appConfig.trigger_browser_download === true) {
       triggerBrowserFileSave(`/api/file/${task.id}`, task.filename);
     }
 
     // Hook play button
     const btnPlayInApp = document.getElementById('btn-play-in-app');
-    btnPlayInApp.onclick = () => {
-      playChime('click');
-      openModalPlayer(`/api/file/${task.id}`, task.title || task.filename);
-    };
+    if (btnPlayInApp) {
+      btnPlayInApp.onclick = () => {
+        playChime('click');
+        openModalPlayer(`/api/file/${task.id}`, task.title || task.filename);
+      };
+    }
 
-    // Hook save to browser button
+    // Hook optional save to browser button if present
     const btnSaveBrowser = document.getElementById('btn-save-browser');
-    btnSaveBrowser.onclick = () => {
-      playChime('click');
-      triggerBrowserFileSave(`/api/file/${task.id}`, task.filename);
-    };
+    if (btnSaveBrowser) {
+      btnSaveBrowser.onclick = () => {
+        playChime('click');
+        triggerBrowserFileSave(`/api/file/${task.id}`, task.filename);
+      };
+    }
 
     // Refresh library if active
     loadLibrary();
@@ -640,18 +644,18 @@
               <span>${item.platform || 'Web'} • ${item.format.toUpperCase()}</span>
               <span>${sizeMb}</span>
             </div>
+            <div style="font-size:0.74rem; color:${item.file_exists === false ? 'var(--accent-rose)' : 'var(--accent-cyan)'}; font-family:monospace; margin-top:6px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${item.filepath || ''}">
+              ${item.file_exists === false ? '⚠️ Missing on disk: ' + (item.filepath || '') : '📁 ' + (item.folder_path || item.filepath || '')}
+            </div>
           </div>
           <div class="media-item-actions">
             <button class="btn-item-action btn-play-card" title="Play Media">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg> Play
             </button>
-            <button class="btn-item-action btn-open-folder" title="Open Folder in Windows Explorer">
-              📂 Folder
+            <button class="btn-item-action btn-open-folder" title="Show & Highlight File in Windows Explorer">
+              📂 Open Folder
             </button>
-            <button class="btn-item-action btn-download-file" title="Save to Browser Downloads">
-              ⬇ Save
-            </button>
-            <button class="btn-item-action btn-item-delete" title="Delete">
+            <button class="btn-item-action btn-item-delete" title="Delete File & Library Entry">
               🗑
             </button>
           </div>
@@ -672,14 +676,10 @@
         const r = await fetch(`/api/library/${item.id}/open-folder`, { method: 'POST' });
         const res = await r.json();
         if (res.success) {
-          showToast('Opened in Windows Explorer', 'success');
+          showToast('Opened & highlighted in: ' + (res.folder_path || ''), 'success');
         } else {
-          showToast('Could not open folder: ' + res.error, 'error');
+          showToast('Could not open folder: ' + (res.error || 'File missing'), 'error');
         }
-      };
-      card.querySelector('.btn-download-file').onclick = () => {
-        playChime('click');
-        triggerBrowserFileSave(`/api/stream-file/${item.id}`, item.filename);
       };
       card.querySelector('.btn-item-delete').onclick = async () => {
         playChime('click');
@@ -947,12 +947,12 @@
               </div>
             `;
             // Click to explore deeper
-            row.onclick = (e) => {
+            row.onclick = async (e) => {
               if (e.target.classList.contains('btn-choose-this')) {
                 e.stopPropagation();
                 playChime('click');
                 settingDownloadDir.value = f.path;
-                showToast(`Selected: ${f.name}`, 'success');
+                await persistSelectedFolder(f.path);
                 return;
               }
               playChime('click');
@@ -980,12 +980,34 @@
     };
   }
 
+  async function persistSelectedFolder(newDir) {
+    if (!newDir) return;
+    try {
+      const resp = await fetch('/api/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ download_dir: newDir })
+      });
+      const res = await resp.json();
+      if (res && res.success && res.config) {
+        appConfig = res.config;
+        if (currentDownloadDirEl) {
+          currentDownloadDirEl.textContent = appConfig.download_dir;
+          currentDownloadDirEl.title = appConfig.download_dir;
+        }
+        showToast(`Default folder set to: ${appConfig.download_dir}`, 'success');
+      }
+    } catch (e) {
+      showToast(`Selected: ${newDir} (click Save Preferences to persist)`, 'info');
+    }
+  }
+
   if (btnFsSelect) {
-    btnFsSelect.onclick = () => {
+    btnFsSelect.onclick = async () => {
       playChime('click');
       if (fsCurrentPath) {
         settingDownloadDir.value = fsCurrentPath;
-        showToast(`Selected folder: ${fsCurrentPath}`, 'success');
+        await persistSelectedFolder(fsCurrentPath);
       } else {
         showToast('Please navigate into a folder first', 'info');
       }
@@ -1080,7 +1102,7 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             download_dir: dir,
-            trigger_browser_download: settingTriggerBrowser ? settingTriggerBrowser.checked : true
+            trigger_browser_download: settingTriggerBrowser ? settingTriggerBrowser.checked : false
           })
         });
 

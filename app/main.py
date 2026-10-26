@@ -208,6 +208,16 @@ async def api_stream_file(download_id: str):
 @app.get("/api/library")
 async def api_get_library(search: Optional[str] = None):
     downloads = get_downloads(limit=100, search=search)
+    for d in downloads:
+        fp = d.get("filepath") or ""
+        if fp:
+            norm_fp = os.path.normpath(fp)
+            d["filepath"] = norm_fp
+            d["folder_path"] = os.path.dirname(norm_fp)
+            d["file_exists"] = os.path.exists(norm_fp)
+        else:
+            d["folder_path"] = ""
+            d["file_exists"] = False
     return {"downloads": downloads, "count": len(downloads)}
 
 @app.delete("/api/library/{download_id}")
@@ -221,8 +231,10 @@ async def api_open_folder(download_id: str):
     Opens the file in Windows File Explorer locally on the interactive desktop and highlights it.
     """
     item = get_download(download_id)
-    if not item or not item.get("filepath") or not os.path.exists(item["filepath"]):
-        raise HTTPException(status_code=404, detail="File not found on system")
+    if not item or not item.get("filepath"):
+        return {"success": False, "error": "Record has no file path"}
+    if not os.path.exists(item["filepath"]):
+        return {"success": False, "error": f"File was deleted or moved from: {item['filepath']}"}
 
     loop = asyncio.get_event_loop()
     return await loop.run_in_executor(None, select_file_in_explorer, item["filepath"])
