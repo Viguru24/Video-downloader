@@ -60,12 +60,15 @@ def get_download_dir() -> str:
     os.makedirs(d, exist_ok=True)
     return d
 
-def get_presets() -> Dict[str, str]:
+def get_presets() -> Dict[str, Any]:
+    import string
+    available_drives = [f"{d}:\\" for d in string.ascii_uppercase if os.path.exists(f"{d}:\\")]
     return {
         "project": DEFAULT_DOWNLOADS,
         "videos": USER_VIDEOS,
         "downloads": USER_DOWNLOADS,
-        "desktop": USER_DESKTOP_VIDEOS
+        "desktop": USER_DESKTOP_VIDEOS,
+        "drives": available_drives
     }
 
 def open_folder_in_explorer(folder_path: str = None) -> bool:
@@ -88,34 +91,51 @@ def open_folder_in_explorer(folder_path: str = None) -> bool:
 
 def pick_folder_gui() -> Dict[str, Any]:
     """
-    Opens the native Windows FolderBrowserDialog to allow the user
-    to click and select any folder visually on their computer.
+    Opens the native folder selection dialog in the foreground on Windows.
+    Uses tkinter.filedialog with -topmost first, with PowerShell -STA fallback.
     """
-    if sys.platform != "win32":
-        return {"success": False, "error": "GUI picker only supported on Windows"}
+    selected = None
+    initial_dir = get_download_dir()
+    if not os.path.exists(initial_dir):
+        initial_dir = os.path.expanduser("~")
 
-    ps_script = (
-        "[void][System.Reflection.Assembly]::LoadWithPartialName('System.Windows.Forms');"
-        "$dialog = New-Object Windows.Forms.FolderBrowserDialog;"
-        "$dialog.Description = 'Select OmniDownloader Default Save Folder';"
-        "$dialog.ShowNewFolderButton = $true;"
-        "if ($dialog.ShowDialog() -eq [Windows.Forms.DialogResult]::OK) {"
-        "  Write-Output $dialog.SelectedPath"
-        "}"
-    )
-
+    # Try Tkinter with topmost focus
     try:
-        res = subprocess.run(
-            ["powershell", "-NoProfile", "-Command", ps_script],
-            capture_output=True,
-            text=True,
-            timeout=120
+        import tkinter as tk
+        from tkinter import filedialog
+        root = tk.Tk()
+        root.withdraw()
+        root.wm_attributes("-topmost", True)
+        root.focus_force()
+        selected = filedialog.askdirectory(
+            title="Select OmniDownloader Default Save Folder",
+            initialdir=initial_dir,
+            parent=root
         )
-        selected = res.stdout.strip()
-        if selected and os.path.exists(selected):
-            # Save it to config
-            new_cfg = save_config({"download_dir": selected})
-            return {"success": True, "selected_path": selected, "config": new_cfg}
-        return {"success": False, "cancelled": True}
-    except Exception as e:
-        return {"success": False, "error": str(e)}
+        root.destroy()
+    except Exception as tk_err:
+        # Fallback to PowerShell -STA
+        ps_script = (
+            "Add-Type -AssemblyName System.Windows.Forms; "
+            "$top = New-Object System.Windows.Forms.Form; "
+            "$top.TopMost = $true; "
+            "$d = New-Object System.Windows.Forms.FolderBrowserDialog; "
+            "$d.Description = 'Select OmniDownloader Default Save Folder'; "
+            "$d.ShowNewFolderButton = $true; "
+            "if ($d.ShowDialog($top) -eq [System.Windows.Forms.DialogResult]::OK) { Write-Output $d.SelectedPath }"
+        )
+        try:
+            res = subprocess.run(
+                ["powershell", "-STA", "-NoProfile", "-Command", ps_script],
+                capture_output=True,
+                text=True,
+                timeout=120
+            )
+            selected = res.stdout.strip()
+        except Exception as ps_err:
+            return {"success": False, "error": f"Folder picker error: {str(tk_err)} | {str(ps_err)}"}
+
+    if selected and os.path.exists(selected):
+        new_cfg = save_config({"download_dir": selected})
+        return {"success": True, "selected_path": selected, "config": new_cfg}
+    return {"success": False, "cancelled": True}

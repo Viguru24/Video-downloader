@@ -795,6 +795,23 @@
       if (checkBrowser && appConfig.trigger_browser_download !== undefined) {
         checkBrowser.checked = !!appConfig.trigger_browser_download;
       }
+
+      // Render drive buttons
+      const drivesContainer = document.getElementById('preset-drives');
+      if (drivesContainer && appPresets.drives && Array.isArray(appPresets.drives)) {
+        drivesContainer.innerHTML = '';
+        appPresets.drives.forEach((drv) => {
+          const pill = document.createElement('button');
+          pill.className = 'btn-preset-pill';
+          pill.textContent = `💾 Drive ${drv}`;
+          pill.onclick = () => {
+            playChime('click');
+            settingDownloadDir.value = drv;
+            showToast(`Selected drive: ${drv}`, 'info');
+          };
+          drivesContainer.appendChild(pill);
+        });
+      }
     } catch (e) {
       console.warn('Failed to load config:', e);
     }
@@ -850,7 +867,7 @@
       const originalText = btnBrowseFolder.innerHTML;
       btnBrowseFolder.disabled = true;
       btnBrowseFolder.innerHTML = '⏳ Picking...';
-      showToast('Select your download folder in the Windows dialog window', 'info');
+      showToast('Opening folder browser... (Check taskbar if window appears behind)', 'info');
 
       try {
         const resp = await fetch('/api/config/pick-folder', { method: 'POST' });
@@ -867,12 +884,12 @@
           if (res.config) appConfig = res.config;
           showToast(`Default folder updated: ${res.selected_path}`, 'success');
         } else if (!res.cancelled) {
-          showToast('Could not select folder: ' + (res.error || 'Unknown error'), 'error');
+          showToast('Folder picker: ' + (res.error || 'Selection cancelled'), 'info');
         }
       } catch (e) {
         btnBrowseFolder.disabled = false;
         btnBrowseFolder.innerHTML = originalText;
-        showToast('Error selecting folder: ' + e.message, 'error');
+        showToast('Error opening folder picker: ' + e.message, 'error');
       }
     };
   }
