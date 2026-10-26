@@ -90,7 +90,11 @@ async def get_sw():
 async def serve_index(request: Request):
     index_path = os.path.join(STATIC_DIR, "index.html")
     with open(index_path, "r", encoding="utf-8") as f:
-        return HTMLResponse(content=f.read())
+        resp = HTMLResponse(content=f.read())
+        resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        resp.headers["Pragma"] = "no-cache"
+        resp.headers["Expires"] = "0"
+        return resp
 
 @app.post("/api/inspect")
 async def api_inspect(payload: InspectRequest):

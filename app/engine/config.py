@@ -71,7 +71,7 @@ def get_presets() -> Dict[str, Any]:
 
 def open_folder_in_explorer(folder_path: str = None) -> bool:
     """
-    Opens Windows File Explorer at the given directory using the native Windows Shell.
+    Forces Windows File Explorer to open the folder window directly on the desktop.
     """
     target = folder_path or get_download_dir()
     target = os.path.normpath(os.path.abspath(target))
@@ -83,14 +83,22 @@ def open_folder_in_explorer(folder_path: str = None) -> bool:
 
     try:
         if sys.platform == "win32":
-            # Primary: native Windows os.startfile
+            # 1. Native Windows ShellExecute
             try:
                 os.startfile(target)
-                return True
             except Exception:
-                # Fallback: explorer.exe
+                pass
+            # 2. Explorer with /n to force new visible window on desktop
+            try:
+                subprocess.Popen(["explorer.exe", f"/n,{target}"])
+            except Exception:
+                pass
+            # 3. Direct Explorer launch
+            try:
                 subprocess.Popen(["explorer.exe", target])
-                return True
+            except Exception:
+                pass
+            return True
         elif sys.platform == "darwin":
             subprocess.Popen(["open", target])
             return True
@@ -103,36 +111,24 @@ def open_folder_in_explorer(folder_path: str = None) -> bool:
 
 def pick_folder_gui() -> Dict[str, Any]:
     """
-    Launches an independent standalone Python child process with Tkinter
-    to show the native Windows FolderBrowserDialog on the interactive desktop.
+    Launches a dedicated standalone helper script with TopMost Form
+    to display the native Windows Folder Selection Dialog.
     """
     initial = get_download_dir()
     if not os.path.exists(initial):
         initial = os.path.expanduser("~")
 
-    # Run in a separate Python process so Tkinter runs on its own main thread
-    code = f'''
-import sys, os
-try:
-    import tkinter as tk
-    from tkinter import filedialog
-    root = tk.Tk()
-    root.withdraw()
-    root.wm_attributes("-topmost", True)
-    root.focus_force()
-    path = filedialog.askdirectory(
-        title="Select OmniDownloader Default Save Folder",
-        initialdir=r"{initial}",
-        parent=root
-    )
-    root.destroy()
-    if path:
-        print(path.strip())
-except Exception as e:
-    sys.stderr.write(str(e))
-'''
+    ps1_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "pick_folder.ps1")
+    cmd = [
+        "powershell.exe",
+        "-STA",
+        "-NoProfile",
+        "-ExecutionPolicy", "Bypass",
+        "-File", ps1_path,
+        "-InitialPath", initial
+    ]
     try:
-        res = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, timeout=120)
+        res = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
         selected = res.stdout.strip()
         if selected and os.path.exists(selected):
             new_cfg = save_config({"download_dir": selected})

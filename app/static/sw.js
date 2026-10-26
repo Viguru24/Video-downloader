@@ -1,31 +1,18 @@
-const CACHE_NAME = "omnidownloader-v2.0";
-const SHELL_ASSETS = [
-  "/",
-  "/manifest.json",
-  "/static/css/style.css",
-  "/static/js/app.js",
-  "/static/icons/icon.svg",
-  "/static/icons/favicon.svg",
-  "/static/icons/icon-192.png",
-  "/static/icons/icon-512.png"
-];
+const CACHE_NAME = "omnidownloader-v2.6";
 
-// Install: pre-cache static shell
+// Install immediately
 self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(SHELL_ASSETS);
-    }).then(() => self.skipWaiting())
-  );
+  self.skipWaiting();
 });
 
-// Activate: cleanup older caches
+// Activate: delete ALL older caches immediately
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then((keys) => {
       return Promise.all(
         keys.map((key) => {
           if (key !== CACHE_NAME) {
+            console.log("Removing old cache:", key);
             return caches.delete(key);
           }
         })
@@ -34,7 +21,7 @@ self.addEventListener("activate", (event) => {
   );
 });
 
-// Fetch strategy
+// Network-First strategy for everything so updates are INSTANT
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
 
@@ -43,21 +30,16 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Cache first, fallback to network for static shell
+  // Network First: Always try network to get freshest code, fallback to cache if offline
   event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      if (cachedResponse) {
-        // Fetch in background to revalidate cache
-        fetch(event.request).then((networkResponse) => {
-          if (networkResponse && networkResponse.status === 200) {
-            caches.open(CACHE_NAME).then((cache) => {
-              cache.put(event.request, networkResponse);
-            });
-          }
-        }).catch(() => {/* Offline fallback */});
-        return cachedResponse;
+    fetch(event.request).then((networkResponse) => {
+      if (networkResponse && networkResponse.status === 200) {
+        const copy = networkResponse.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
       }
-      return fetch(event.request);
+      return networkResponse;
+    }).catch(() => {
+      return caches.match(event.request);
     })
   );
 });
