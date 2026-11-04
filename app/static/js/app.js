@@ -23,22 +23,31 @@
   let batchQueue = [];
   let isBatchRunning = false;
 
-  // Audio synthesis for tactile UX
-  const audioCtx = (typeof AudioContext !== 'undefined' || typeof webkitAudioContext !== 'undefined')
-    ? new (window.AudioContext || window.webkitAudioContext)()
-    : null;
+  // Audio synthesis for tactile UX (lazy-initialized on user gesture for mobile safety)
+  let audioCtx = null;
+  function getAudioCtx() {
+    if (!audioCtx && (typeof AudioContext !== 'undefined' || typeof webkitAudioContext !== 'undefined')) {
+      try {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      } catch (e) {
+        audioCtx = null;
+      }
+    }
+    return audioCtx;
+  }
 
   function playChime(type = 'success') {
-    if (!audioCtx) return;
+    const ctx = getAudioCtx();
+    if (!ctx) return;
     try {
-      if (audioCtx.state === 'suspended') {
-        audioCtx.resume();
+      if (ctx.state === 'suspended') {
+        ctx.resume().catch(() => {});
       }
-      const now = audioCtx.currentTime;
-      const osc = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
       osc.connect(gain);
-      gain.connect(audioCtx.destination);
+      gain.connect(ctx.destination);
 
       if (type === 'success') {
         osc.type = 'sine';
