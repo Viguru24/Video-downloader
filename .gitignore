@@ -9,6 +9,7 @@ venv/
 downloads/*
 !downloads/.gitkeep
 downloads.db
+backup_status.json
 config.json
 *.log
 .DS_Store
