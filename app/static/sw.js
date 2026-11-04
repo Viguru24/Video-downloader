@@ -38,8 +38,9 @@ self.addEventListener("fetch", (event) => {
 
   // Bypass cache completely for API calls, SSE streams, and media streaming
   if (
-    url.pathname.startsWith("/api/") ||
-    url.pathname.startsWith("/stream") ||
+    url.pathname.includes("/api/") ||
+    url.pathname.includes("/stream") ||
+    url.pathname.includes("/file/") ||
     event.request.headers.get("accept")?.includes("text/event-stream")
   ) {
     return;

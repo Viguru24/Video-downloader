@@ -2,6 +2,16 @@
 (function () {
   'use strict';
 
+  // Base Path Normalizer (works on root domain, subpath /downloader/, or localhost)
+  const BASE_URL = window.location.pathname.endsWith('/')
+    ? window.location.pathname
+    : window.location.pathname.replace(/\/[^/]*$/, '/');
+
+  function apiUrl(path) {
+    const clean = String(path || '').replace(/^\/+/, '');
+    return `${BASE_URL}${clean}`;
+  }
+
   // State
   let currentTask = null;
   let activeEventSource = null;
@@ -176,7 +186,7 @@
     progressCard.style.display = 'none';
 
     try {
-      const resp = await fetch('/api/inspect', {
+      const resp = await fetch(apiUrl('/api/inspect'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url })
@@ -310,7 +320,7 @@
         btnStartDownload.disabled = true;
         btnStartDownload.textContent = 'Initializing...';
 
-        const resp = await fetch('/api/download', {
+        const resp = await fetch(apiUrl('/api/download'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
@@ -347,7 +357,7 @@
       activeEventSource.close();
     }
 
-    const sse = new EventSource(`/api/tasks/${taskId}/stream`);
+    const sse = new EventSource(apiUrl(`/api/tasks/${taskId}/stream`));
     activeEventSource = sse;
 
     sse.onmessage = (event) => {
@@ -393,7 +403,7 @@
 
   async function pollTaskStatus(taskId) {
     try {
-      const resp = await fetch(`/api/tasks/${taskId}`);
+      const resp = await fetch(apiUrl(`/api/tasks/${taskId}`));
       const task = await resp.json();
       updateProgressUI(task);
       if (task.status === 'completed') {
@@ -427,7 +437,7 @@
     if (btnCompletedOpenFolder) {
       btnCompletedOpenFolder.onclick = async () => {
         playChime('click');
-        const r = await fetch(`/api/library/${task.id}/open-folder`, { method: 'POST' });
+        const r = await fetch(apiUrl(`/api/library/${task.id}/open-folder`), { method: 'POST' });
         const res = await r.json();
         if (res && res.success) {
           showToast('Opened & highlighted in: ' + (res.folder_path || ''), 'success');
@@ -440,7 +450,7 @@
 
     // Only push a browser copy if explicitly turned ON in Settings (OFF by default so files save once)
     if (appConfig && appConfig.trigger_browser_download === true) {
-      triggerBrowserFileSave(`/api/file/${task.id}`, task.filename);
+      triggerBrowserFileSave(apiUrl(`/api/file/${task.id}`), task.filename);
     }
 
     // Hook play button
@@ -448,7 +458,7 @@
     if (btnPlayInApp) {
       btnPlayInApp.onclick = () => {
         playChime('click');
-        openModalPlayer(`/api/file/${task.id}`, task.title || task.filename);
+        openModalPlayer(apiUrl(`/api/file/${task.id}`), task.title || task.filename);
       };
     }
 
@@ -457,7 +467,7 @@
     if (btnSaveBrowser) {
       btnSaveBrowser.onclick = () => {
         playChime('click');
-        triggerBrowserFileSave(`/api/file/${task.id}`, task.filename);
+        triggerBrowserFileSave(apiUrl(`/api/file/${task.id}`), task.filename);
       };
     }
 
@@ -481,7 +491,7 @@
       if (!currentTask) return;
       playChime('click');
       if (confirm('Cancel this download?')) {
-        await fetch(`/api/tasks/${currentTask}/cancel`, { method: 'POST' });
+        await fetch(apiUrl(`/api/tasks/${currentTask}/cancel`), { method: 'POST' });
         if (activeEventSource) activeEventSource.close();
         progressCard.style.display = 'none';
         showToast('Download cancelled', 'info');
@@ -543,7 +553,7 @@
       renderBatchQueue();
 
       try {
-        const resp = await fetch('/api/download', {
+        const resp = await fetch(apiUrl('/api/download'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ url: item.url, quality_id: 'best' })
@@ -571,7 +581,7 @@
     return new Promise((resolve) => {
       const check = async () => {
         try {
-          const resp = await fetch(`/api/tasks/${taskId}`);
+          const resp = await fetch(apiUrl(`/api/tasks/${taskId}`));
           const data = await resp.json();
           if (data.status === 'completed' || data.status === 'error' || data.status === 'cancelled') {
             resolve();
@@ -591,7 +601,7 @@
     if (!libraryGrid) return;
     try {
       const query = librarySearch ? librarySearch.value.trim() : '';
-      const url = query ? `/api/library?search=${encodeURIComponent(query)}` : '/api/library';
+      const url = query ? apiUrl(`/api/library?search=${encodeURIComponent(query)}`) : apiUrl('/api/library');
       const resp = await fetch(url);
       const data = await resp.json();
 
@@ -665,15 +675,15 @@
       // Handlers
       card.querySelector('.media-play-overlay').onclick = () => {
         playChime('click');
-        openModalPlayer(`/api/stream-file/${item.id}`, item.title);
+        openModalPlayer(apiUrl(`/api/stream-file/${item.id}`), item.title);
       };
       card.querySelector('.btn-play-card').onclick = () => {
         playChime('click');
-        openModalPlayer(`/api/stream-file/${item.id}`, item.title);
+        openModalPlayer(apiUrl(`/api/stream-file/${item.id}`), item.title);
       };
       card.querySelector('.btn-open-folder').onclick = async () => {
         playChime('click');
-        const r = await fetch(`/api/library/${item.id}/open-folder`, { method: 'POST' });
+        const r = await fetch(apiUrl(`/api/library/${item.id}/open-folder`), { method: 'POST' });
         const res = await r.json();
         if (res.success) {
           showToast('Opened & highlighted in: ' + (res.folder_path || ''), 'success');
@@ -684,7 +694,7 @@
       card.querySelector('.btn-item-delete').onclick = async () => {
         playChime('click');
         if (confirm(`Delete "${item.title}"?`)) {
-          await fetch(`/api/library/${item.id}`, { method: 'DELETE' });
+          await fetch(apiUrl(`/api/library/${item.id}`), { method: 'DELETE' });
           showToast('Deleted', 'info');
           loadLibrary();
         }
@@ -725,7 +735,7 @@
   // PWA Service Worker Registration & Install Prompt
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/sw.js').then((reg) => {
+      navigator.serviceWorker.register(apiUrl('sw.js')).then((reg) => {
         console.log('OmniDownloader Service Worker registered: ', reg.scope);
         reg.update().catch(() => {});
       }).catch((err) => {
@@ -777,7 +787,7 @@
 
   async function loadAppConfig() {
     try {
-      const resp = await fetch('/api/config');
+      const resp = await fetch(apiUrl('/api/config'));
       const data = await resp.json();
       appConfig = data.config || {};
       appPresets = data.presets || {};
@@ -871,7 +881,7 @@
     fsList.innerHTML = '<div style="text-align:center; padding:12px; color:var(--text-muted); font-size:0.8rem;">Loading folders...</div>';
 
     try {
-      const url = '/api/fs/list' + (targetPath ? '?path=' + encodeURIComponent(targetPath) : '');
+      const url = apiUrl('/api/fs/list' + (targetPath ? '?path=' + encodeURIComponent(targetPath) : ''));
       const resp = await fetch(url);
       const data = await resp.json();
 
@@ -983,7 +993,7 @@
   async function persistSelectedFolder(newDir) {
     if (!newDir) return;
     try {
-      const resp = await fetch('/api/config', {
+      const resp = await fetch(apiUrl('/api/config'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ download_dir: newDir })
@@ -1018,7 +1028,7 @@
   async function triggerOpenFolder(folderPath = null) {
     playChime('click');
     try {
-      const resp = await fetch('/api/config/open-folder', {
+      const resp = await fetch(apiUrl('/api/config/open-folder'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ folder_path: folderPath })
@@ -1047,7 +1057,7 @@
       showToast('Opening folder browser... (Check taskbar if window appears behind)', 'info');
 
       try {
-        const resp = await fetch('/api/config/pick-folder', { method: 'POST' });
+        const resp = await fetch(apiUrl('/api/config/pick-folder'), { method: 'POST' });
         const res = await resp.json();
         btnBrowseFolder.disabled = false;
         btnBrowseFolder.innerHTML = originalText;
@@ -1097,7 +1107,7 @@
       btnSaveSettings.textContent = 'Saving...';
 
       try {
-        const resp = await fetch('/api/config', {
+        const resp = await fetch(apiUrl('/api/config'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
