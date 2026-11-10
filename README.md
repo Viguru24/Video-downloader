@@ -43,12 +43,18 @@
 - **Python 3.10+** (Python 3.12 verified)
 - **FFmpeg** (installed and in PATH)
 
-### 1. Launch with PowerShell
+### 1. Launch with Batch file (1-Click)
+Double-click `start.bat` or run:
+```cmd
+start.bat
+```
+
+### 2. Launch with PowerShell
 ```powershell
 .\start.ps1
 ```
 
-### 2. Or Launch with Python
+### 3. Or Launch directly with Python
 ```powershell
 python server.py
 ```
